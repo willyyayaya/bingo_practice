@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bingo 預測系統</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+    <h1>Bingo 預測系統</h1>
+
+    <h2>輸入開獎號碼</h2>
+    <div id="number-grid" class="grid"></div>
+    <button class="btn" onclick="submitDraw()">提交開獎號碼</button>
+
+    <h2>統計結果</h2>
+    <button class="btn" onclick="fetchStatistics()">計算統計數據</button>
+    <div id="statistics" class="statistics"></div>
+
+    <script src="/script.js"></script>
+
+</body>
+</html>
