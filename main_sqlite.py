@@ -1,4 +1,4 @@
-import mysql.connector
+import sqlite3
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from collections import Counter, defaultdict
@@ -19,14 +19,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# MySQL 連線設定
-db_config = {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "database": "bingo_db",
-}
-
 # 數字輸入模型
 class NumberSelection(BaseModel):
     numbers: list[int]
@@ -37,6 +29,12 @@ class PredictionParams(BaseModel):
     hot_weight: float = 0.7
     cold_weight: float = 0.3
     num_combinations: int = 5
+
+# SQLite連接函數
+def get_db_connection():
+    conn = sqlite3.connect('bingo.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
 # 計算連號
 def find_streaks(numbers_list, streak_length):
@@ -54,12 +52,12 @@ async def add_new_draw(request: NumberSelection):
     if len(request.numbers) != 10:
         raise HTTPException(status_code=400, detail="請選擇 10 個數字")
 
-    conn = mysql.connector.connect(**db_config)
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     query = """
     INSERT INTO bingo_draws (num1, num2, num3, num4, num5, num6, num7, num8, num9, num10)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     cursor.execute(query, tuple(request.numbers))
 
@@ -72,8 +70,8 @@ async def add_new_draw(request: NumberSelection):
 # 查詢近五期並統計熱門冷門號碼
 @app.get("/statistics")
 async def get_statistics():
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
     cursor.execute("SELECT * FROM bingo_draws ORDER BY draw_date DESC LIMIT 5")
     last_5_draws = cursor.fetchall()
@@ -114,22 +112,34 @@ async def get_statistics():
     two_same = sorted(pair_counts.items(), key=lambda x: x[1], reverse=True)[:5]
     three_same = sorted(triplet_counts.items(), key=lambda x: x[1], reverse=True)[:5]
 
-    query = """
-    INSERT INTO bingo_statistics (
-        hot_numbers, cold_numbers, two_streaks, three_streaks, four_streaks, 
-        hot_heads, hot_tails, two_same, three_same
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """
-    cursor.execute(query, (
-        json.dumps(hot_numbers),
-        json.dumps(cold_numbers),
-        json.dumps(two_streaks),
-        json.dumps(three_streaks),
-        json.dumps(four_streaks),
-        json.dumps(hot_heads),
-        json.dumps(hot_tails),
-        json.dumps(two_same),
-        json.dumps(three_same)
+    # 將JSON數據轉為字符串
+    stats_data = {
+        "hot_numbers": json.dumps(hot_numbers),
+        "cold_numbers": json.dumps(cold_numbers),
+        "two_streaks": json.dumps(two_streaks),
+        "three_streaks": json.dumps(three_streaks),
+        "four_streaks": json.dumps(four_streaks),
+        "hot_heads": json.dumps(hot_heads),
+        "hot_tails": json.dumps(hot_tails),
+        "two_same": json.dumps(two_same),
+        "three_same": json.dumps(three_same)
+    }
+    
+    cursor.execute("""
+    INSERT INTO bingo_statistics 
+    (hot_numbers, cold_numbers, two_streaks, three_streaks, four_streaks, 
+    hot_heads, hot_tails, two_same, three_same)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        stats_data["hot_numbers"],
+        stats_data["cold_numbers"],
+        stats_data["two_streaks"],
+        stats_data["three_streaks"],
+        stats_data["four_streaks"],
+        stats_data["hot_heads"],
+        stats_data["hot_tails"],
+        stats_data["two_same"],
+        stats_data["three_same"]
     ))
 
     conn.commit()
@@ -155,8 +165,8 @@ async def get_history(periods: int = 10):
     if periods <= 0:
         raise HTTPException(status_code=400, detail="期數必須大於 0")
         
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
     cursor.execute(f"SELECT * FROM bingo_draws ORDER BY draw_date DESC LIMIT {periods}")
     draws = cursor.fetchall()
@@ -164,8 +174,9 @@ async def get_history(periods: int = 10):
     formatted_draws = []
     for draw in draws:
         num_list = [draw[f'num{i}'] for i in range(1, 11)]
+        draw_date = draw["draw_date"] if "draw_date" in draw.keys() else None
         formatted_draws.append({
-            "draw_date": draw["draw_date"].isoformat() if draw["draw_date"] else None,
+            "draw_date": draw_date,
             "numbers": num_list
         })
     
@@ -177,8 +188,8 @@ async def get_history(periods: int = 10):
 # 預測下一期號碼
 @app.post("/predict")
 async def predict_numbers(params: PredictionParams):
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor(dictionary=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
     cursor.execute(f"SELECT * FROM bingo_draws ORDER BY draw_date DESC LIMIT {params.periods}")
     draws = cursor.fetchall()
@@ -195,23 +206,34 @@ async def predict_numbers(params: PredictionParams):
     number_counts = Counter(all_numbers)
     total_numbers = len(draws) * 10
     
+    # 定義熱號和冷號的閾值
+    hot_threshold = 0.015  # 出現頻率高於1.5%視為熱號
+    cold_threshold = 0.005  # 出現頻率低於0.5%視為冷號
+    
+    # 按次數排序所有號碼
+    sorted_numbers = sorted([(n, count) for n, count in number_counts.items()], 
+                            key=lambda x: x[1], reverse=True)
+    
     # 計算每個號碼的出現機率
     probabilities = {}
     for num in range(1, 81):
-        # 基礎機率
+        # 基礎機率 - 每個號碼在數據集中的實際出現頻率
         base_prob = number_counts.get(num, 0) / total_numbers
         
-        # 熱號加權 (出現頻率高的號碼)
-        if num in [n for n, _ in number_counts.most_common(15)]:
+        # 分類號碼
+        if base_prob >= hot_threshold:
+            # 熱號 - 加強其機率
             probabilities[num] = base_prob * params.hot_weight
-        # 冷號加權 (出現頻率低或未出現的號碼)
-        elif num not in number_counts or num in [n for n, _ in number_counts.most_common()[:-16:-1]]:
-            # 如果完全沒出現過，給予一個小的基礎機率
+        elif base_prob <= cold_threshold or num not in number_counts:
+            # 冷號或從未出現的號碼
             if num not in number_counts:
-                probabilities[num] = 0.01 * params.cold_weight
-            else:
-                probabilities[num] = (1 - base_prob) * params.cold_weight
+                # 從未出現的號碼給予一個基礎機率
+                base_prob = 1 / (total_numbers * 2)  # 較小但非零的機率
+            # 冷號使用反向加權，越冷機率反而越高（假設冷號可能即將出現）
+            cold_factor = cold_threshold / (base_prob + 0.0001)  # 避免除以零
+            probabilities[num] = base_prob * cold_factor * params.cold_weight
         else:
+            # 中性號碼 - 保持原有機率
             probabilities[num] = base_prob
     
     # 正規化機率，確保總和為 1
@@ -220,10 +242,13 @@ async def predict_numbers(params: PredictionParams):
         probabilities[num] /= total_prob
     
     # 收集統計信息
-    hot_numbers = [num for num, _ in number_counts.most_common(10)]
-    cold_numbers = [num for num in range(1, 81) if num not in number_counts]
-    if not cold_numbers:
-        cold_numbers = [num for num, _ in number_counts.most_common()[:-11:-1]]
+    # 熱號 - 前10個高頻號碼
+    hot_numbers = [n for n, _ in sorted_numbers[:10]] if sorted_numbers else []
+    # 冷號 - 所有未出現或出現次數最少的號碼（至多10個）
+    never_appeared = [n for n in range(1, 81) if n not in number_counts]
+    rare_numbers = [n for n, _ in sorted_numbers[-10:]] if sorted_numbers else []
+    cold_numbers = never_appeared + rare_numbers
+    cold_numbers = cold_numbers[:10]  # 最多取10個冷號
     
     # 按機率生成多組推薦號碼
     recommendations = []
@@ -257,7 +282,8 @@ async def predict_numbers(params: PredictionParams):
         visualization_data.append({
             "number": num,
             "frequency": number_counts.get(num, 0),
-            "probability": round(probabilities[num] * 100, 2)  # 百分比形式
+            "probability": round(probabilities[num] * 100, 2),  # 百分比形式
+            "type": "hot" if num in hot_numbers else ("cold" if num in cold_numbers else "neutral")
         })
     
     return {
@@ -268,4 +294,4 @@ async def predict_numbers(params: PredictionParams):
         "number_probabilities": recommendation_scores,
         "top_numbers": top_numbers,
         "visualization_data": visualization_data
-    }
+    } 

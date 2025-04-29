@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bingo 預測系統</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
     <h1>Bingo 預測系統</h1>
+    <div id="connection-status" class="connection-status">檢查後端連接中...</div>
 
     <h2>輸入開獎號碼</h2>
     <div id="number-grid" class="grid"></div>
@@ -18,7 +20,50 @@
     <button class="btn" onclick="fetchStatistics()">計算統計數據</button>
     <div id="statistics" class="statistics"></div>
 
-    <script src="/script.js"></script>
+    <h2>號碼預測</h2>
+    <div class="prediction-options">
+        <label>分析期數：
+            <select id="periods">
+                <option value="5">5期</option>
+                <option value="10" selected>10期</option>
+                <option value="20">20期</option>
+                <option value="30">30期</option>
+            </select>
+        </label>
+        <label>熱號權重：
+            <input type="range" id="hot-weight" min="0.1" max="1.0" step="0.1" value="0.7">
+            <span id="hot-weight-value">0.7</span>
+        </label>
+        <label>冷號權重：
+            <input type="range" id="cold-weight" min="0.1" max="1.0" step="0.1" value="0.3">
+            <span id="cold-weight-value">0.3</span>
+        </label>
+        <label>推薦組合數：
+            <select id="combinations">
+                <option value="3">3組</option>
+                <option value="5" selected>5組</option>
+                <option value="10">10組</option>
+            </select>
+        </label>
+        <button class="btn predict-btn" onclick="predictNumbers()">預測下一期號碼</button>
+    </div>
+
+    <div id="prediction-results" class="prediction-results">
+        <div id="recommended-numbers"></div>
+        <div class="chart-container">
+            <canvas id="frequencyChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="probabilityChart"></canvas>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>使用說明：請確保後端服務在端口8000運行，前端在端口8080運行</p>
+        <p>後端API地址：<span id="api-url">http://localhost:8000</span></p>
+    </footer>
+
+    <script src="script.js"></script>
 
 </body>
 </html>

@@ -1,6 +1,9 @@
 body {
     font-family: Arial, sans-serif;
     text-align: center;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
 }
 
 .grid {
@@ -31,8 +34,163 @@ body {
     padding: 10px 20px;
     font-size: 16px;
     cursor: pointer;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.btn:hover {
+    background-color: #45a049;
 }
 
 .statistics {
     margin-top: 20px;
+    text-align: left;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+.prediction-options {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin: 20px 0;
+    padding: 15px;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+}
+
+.prediction-options label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.predict-btn {
+    background-color: #2196F3;
+}
+
+.predict-btn:hover {
+    background-color: #0b7dda;
+}
+
+.prediction-results {
+    margin-top: 30px;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    background-color: #f9f9f9;
+}
+
+.chart-container {
+    margin: 30px auto;
+    height: 300px;
+    max-width: 800px;
+}
+
+.recommended-set {
+    display: inline-block;
+    margin: 10px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #fff;
+}
+
+.recommended-number {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+    margin: 3px;
+    text-align: center;
+    border-radius: 50%;
+    background-color: #e1f5fe;
+}
+
+.hot {
+    background-color: #ffcdd2;
+}
+
+.cold {
+    background-color: #c8e6c9;
+}
+
+.number-stats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.number-stat {
+    width: 40px;
+    height: 40px;
+    line-height: 40px;
+    text-align: center;
+    border-radius: 50%;
+    background-color: #e0e0e0;
+    position: relative;
+}
+
+.number-stat .tooltip {
+    visibility: hidden;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -60px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    width: 120px;
+}
+
+.number-stat:hover .tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+.connection-status {
+    padding: 10px;
+    margin: 10px auto;
+    border-radius: 5px;
+    max-width: 500px;
+    font-weight: bold;
+}
+
+.connection-status.connected {
+    background-color: #c8e6c9;
+    color: #2e7d32;
+}
+
+.connection-status.disconnected {
+    background-color: #ffcdd2;
+    color: #c62828;
+}
+
+.footer {
+    margin-top: 50px;
+    padding: 20px;
+    border-top: 1px solid #ddd;
+    color: #777;
+    font-size: 14px;
+}
+
+#api-url {
+    font-family: monospace;
+    background-color: #f0f0f0;
+    padding: 2px 5px;
+    border-radius: 3px;
 }
