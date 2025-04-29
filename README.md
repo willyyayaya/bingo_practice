@@ -102,4 +102,8 @@ uvicorn main:app --reload
 
 3. **圖表無法顯示**
    - 確認是否已正確加載Chart.js庫
-   - 檢查瀏覽器控制台是否有錯誤消息 
+   - 檢查瀏覽器控制台是否有錯誤消息
+
+---
+
+作者：willyyayaya 
